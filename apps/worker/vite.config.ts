@@ -8,4 +8,10 @@ import { defineConfig } from "vite";
 // 既存の form / Google Calendar booking 利用者には load されない。
 export default defineConfig({
   plugins: [cloudflare(), react(), tailwindcss()],
+  // Vite 開発サーバー内蔵の CORS を無効化する。有効のままだと OPTIONS
+  // プリフライトを Vite が握りつぶし、credentials 無しの CORS ヘッダーで
+  // 204 応答してしまうため、credentials: 'include' を使う管理画面ログイン
+  // (localhost:3001 → :5173) がプリフライトでブロックされる。無効化して
+  // Worker (Hono cors) に CORS 処理を一任する。
+  server: { cors: false },
 });

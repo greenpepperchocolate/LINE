@@ -15,3 +15,10 @@ apps/web/out/
 apps/worker/dist/
 .worktrees/
 .claude/worktrees/
+
+# ローカル開発シークレット (wrangler) — 絶対にコミットしない
+.dev.vars
+*.dev.vars
+
+# claude-mem プラグインが自動生成するコンテキストファイル
+CLAUDE.md
