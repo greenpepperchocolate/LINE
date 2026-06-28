@@ -1,0 +1,4 @@
+# apps/webhook-relay/.dev.vars にコピーして使う (Git 管理外)
+# Django 側 RELAY_SHARED_SECRET と同じ値にする
+# (LINE_CHANNEL_SECRET は不要 — 署名検証は Django が DB の値で行う)
+RELAY_SHARED_SECRET=dev-relay-secret-change-me

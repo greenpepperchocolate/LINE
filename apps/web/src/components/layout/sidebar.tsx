@@ -321,20 +321,10 @@ export default function Sidebar() {
           </p>
         </div>
         <button
-          onClick={async () => {
-            try {
-              const apiUrl = process.env.NEXT_PUBLIC_API_URL
-              if (apiUrl) {
-                await fetch(`${apiUrl}/api/auth/logout`, {
-                  method: 'POST',
-                  credentials: 'include',
-                })
-              }
-            } catch {
-              // Local cleanup still logs the browser out if the network call fails.
-            }
-            localStorage.removeItem('lh_api_key')
-            localStorage.removeItem('lh_csrf')
+          onClick={() => {
+            // JWT 方式: クライアント側でトークンを破棄するだけでログアウト完了。
+            localStorage.removeItem('lh_access')
+            localStorage.removeItem('lh_refresh')
             localStorage.removeItem('lh_staff_name')
             localStorage.removeItem('lh_staff_role')
             window.location.href = '/login'

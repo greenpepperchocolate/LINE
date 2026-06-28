@@ -1,14 +1,20 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { setTokens } from '@/lib/api'
+
+type Mode = 'login' | 'register'
 
 export default function LoginPage() {
-  const [apiKey, setApiKey] = useState('')
+  const [mode, setMode] = useState<Mode>('login')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
@@ -20,43 +26,34 @@ export default function LoginPage() {
         setLoading(false)
         return
       }
-      // Exchange the API key for an HttpOnly session cookie. The key is never
-      // stored in localStorage (removes the XSS-exposed credential).
-      const res = await fetch(`${apiUrl}/api/auth/login`, {
+
+      const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/register'
+      const body =
+        mode === 'login'
+          ? { email, password }
+          : { email, password, name }
+
+      const res = await fetch(`${apiUrl}${endpoint}`, {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey }),
+        body: JSON.stringify(body),
       })
 
-      if (res.ok) {
-        localStorage.removeItem('lh_api_key')
-        try {
-          const loginData = await res.json()
-          if (loginData.success && loginData.data) {
-            localStorage.setItem('lh_staff_name', loginData.data.name)
-            localStorage.setItem('lh_staff_role', loginData.data.role)
-          }
-          // Cache the CSRF token for mutating requests (double-submit).
-          if (loginData.csrfToken) {
-            localStorage.setItem('lh_csrf', loginData.csrfToken)
-          }
-        } catch {
-          // Profile / CSRF caching is best-effort.
-        }
+      const data = await res.json().catch(() => null)
+
+      if (res.ok && data?.success) {
+        // JWT トークンを保存
+        setTokens(data.access, data.refresh)
+        if (data.data?.name) localStorage.setItem('lh_staff_name', data.data.name)
+        if (data.data?.role) localStorage.setItem('lh_staff_role', data.data.role)
         router.push('/')
-      } else if (res.status === 401) {
-        setError('APIキーが正しくありません')
+        return
+      }
+
+      if (res.status === 401) {
+        setError('メールアドレスまたはパスワードが正しくありません')
       } else {
-        // Surface topology / configuration errors (e.g. cross-site cookie guard).
-        let message = 'ログインに失敗しました'
-        try {
-          const data = await res.json()
-          if (data?.error) message = data.error
-        } catch {
-          // keep default message
-        }
-        setError(message)
+        setError(data?.error || (mode === 'login' ? 'ログインに失敗しました' : '登録に失敗しました'))
       }
     } catch {
       setError('接続に失敗しました')
@@ -73,19 +70,47 @@ export default function LoginPage() {
             H
           </div>
           <h1 className="text-xl font-bold text-gray-900">L Harness</h1>
-          <p className="text-sm text-gray-500 mt-1">管理画面にログイン</p>
+          <p className="text-sm text-gray-500 mt-1">
+            {mode === 'login' ? '管理画面にログイン' : '管理アカウントを作成'}
+          </p>
         </div>
 
-        <form onSubmit={handleLogin}>
+        <form onSubmit={handleSubmit}>
+          {mode === 'register' && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">名前</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="表示名"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              />
+            </div>
+          )}
+
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">メールアドレス</label>
             <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="APIキーを入力"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
               autoFocus
+              required
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">パスワード</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={mode === 'register' ? '8文字以上' : 'パスワードを入力'}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              required
             />
           </div>
 
@@ -95,13 +120,27 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading || !apiKey}
+            disabled={loading || !email || !password}
             className="w-full py-3 text-white font-medium rounded-lg transition-opacity hover:opacity-90 disabled:opacity-50"
             style={{ backgroundColor: '#06C755' }}
           >
-            {loading ? 'ログイン中...' : 'ログイン'}
+            {loading
+              ? (mode === 'login' ? 'ログイン中...' : '登録中...')
+              : (mode === 'login' ? 'ログイン' : 'アカウント作成')}
           </button>
         </form>
+
+        <div className="text-center mt-5">
+          <button
+            type="button"
+            onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError('') }}
+            className="text-sm text-gray-500 hover:text-green-600 transition-colors"
+          >
+            {mode === 'login'
+              ? 'アカウントをお持ちでない方はこちら（新規登録）'
+              : 'すでにアカウントをお持ちの方はこちら（ログイン）'}
+          </button>
+        </div>
       </div>
     </div>
   )

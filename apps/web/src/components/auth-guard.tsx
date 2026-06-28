@@ -15,19 +15,21 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       return () => { cancelled = true }
     }
 
-    // Verify the session via the HttpOnly cookie. /api/auth/session returns the
-    // staff identity and refreshes the CSRF token if it was lost (e.g. reload).
+    // JWT セッション検証。/api/auth/me に Bearer トークンを付けて叩き、
+    // 有効ならログイン中ユーザー情報を取得する。
     const checkSession = async () => {
       try {
-        localStorage.removeItem('lh_api_key')
         const apiUrl = process.env.NEXT_PUBLIC_API_URL
-        const res = await fetch(`${apiUrl}/api/auth/session`, { credentials: 'include' })
+        const accessToken = localStorage.getItem('lh_access') || ''
+        if (!accessToken) throw new Error('unauthenticated')
+        const res = await fetch(`${apiUrl}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
         if (!res.ok) throw new Error('unauthenticated')
         const data = await res.json()
         if (!data?.success || !data?.data) throw new Error('unauthenticated')
         if (data.data.name) localStorage.setItem('lh_staff_name', data.data.name)
         if (data.data.role) localStorage.setItem('lh_staff_role', data.data.role)
-        if (data.csrfToken) localStorage.setItem('lh_csrf', data.csrfToken)
         if (!cancelled) setChecked(true)
       } catch {
         if (!cancelled) router.replace('/login')

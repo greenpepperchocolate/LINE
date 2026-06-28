@@ -1,0 +1,15 @@
+{
+  "name": "webhook-relay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LINE Webhook を受け取り Django へ非同期転送する中継 Cloudflare Worker",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241205.0",
+    "typescript": "^5.7.0",
+    "wrangler": "4"
+  }
+}

@@ -1,0 +1,13 @@
+name = "line-webhook-relay"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+# 非シークレットの設定値。本番は実際の Django URL に変更する。
+[vars]
+DJANGO_WEBHOOK_URL = "http://localhost:8000/api/line/webhook"
+
+# シークレットは `wrangler secret put <NAME>` で設定する (本番):
+#   RELAY_SHARED_SECRET   — Django の RELAY_SHARED_SECRET と同じ値
+#
+# LINE_CHANNEL_SECRET は不要 (署名検証は Django が管理画面で登録した値で行う)。
+# ローカル開発では apps/webhook-relay/.dev.vars に記述する。

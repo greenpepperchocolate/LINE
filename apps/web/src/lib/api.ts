@@ -63,44 +63,52 @@ if (!API_URL) {
 }
 
 /**
- * Read the CSRF token issued at login. The session credential itself lives in
- * an HttpOnly cookie (never exposed to JS); only the CSRF token is held
- * client-side and echoed back via the X-CSRF-Token header on mutating
- * requests. In a cross-site topology the SPA cannot read the API's CSRF cookie
- * directly, so the token is delivered in the login/session response body and
- * cached here.
+ * JWT (djangorestframework-simplejwt) 認証。
+ * ログイン時に発行された access / refresh トークンを localStorage に保存し、
+ * 各 API 呼び出しで Authorization: Bearer <access> ヘッダーとして送る。
+ * (旧: HttpOnly Cookie セッション + CSRF。Django/JWT 方式へ置き換え)
  */
-export const CSRF_STORAGE_KEY = 'lh_csrf'
+export const ACCESS_TOKEN_KEY = 'lh_access'
+export const REFRESH_TOKEN_KEY = 'lh_refresh'
 
-export function getCsrfToken(): string {
+export function getAccessToken(): string {
   if (typeof window === 'undefined') return ''
-  return localStorage.getItem(CSRF_STORAGE_KEY) || ''
+  return localStorage.getItem(ACCESS_TOKEN_KEY) || ''
 }
 
-export function setCsrfToken(token: string | undefined | null): void {
-  if (typeof window === 'undefined' || !token) return
-  localStorage.setItem(CSRF_STORAGE_KEY, token)
+export function setTokens(access?: string | null, refresh?: string | null): void {
+  if (typeof window === 'undefined') return
+  if (access) localStorage.setItem(ACCESS_TOKEN_KEY, access)
+  if (refresh) localStorage.setItem(REFRESH_TOKEN_KEY, refresh)
 }
 
-const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
+export function clearAuth(): void {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem(ACCESS_TOKEN_KEY)
+  localStorage.removeItem(REFRESH_TOKEN_KEY)
+  localStorage.removeItem('lh_staff_name')
+  localStorage.removeItem('lh_staff_role')
+}
 
 export async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
-  const method = (options?.method ?? 'GET').toUpperCase()
-  const csrfHeaders: Record<string, string> = {}
-  if (MUTATING_METHODS.has(method)) {
-    const token = getCsrfToken()
-    if (token) csrfHeaders['X-CSRF-Token'] = token
-  }
+  const token = getAccessToken()
+  const authHeaders: Record<string, string> = token
+    ? { Authorization: `Bearer ${token}` }
+    : {}
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
-    // Send the HttpOnly session cookie with every request.
-    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      ...csrfHeaders,
+      ...authHeaders,
       ...options?.headers,
     },
   })
+  if (res.status === 401) {
+    // トークン失効 → ログイン画面へ
+    clearAuth()
+    if (typeof window !== 'undefined') window.location.href = '/login'
+    throw new Error('API error: 401')
+  }
   if (!res.ok) throw new Error(`API error: ${res.status}`)
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
@@ -1094,16 +1102,16 @@ export const api = {
       }),
 
     // 画像 upload は Content-Type を image/* で送るので fetchApi を使わず直接 fetch。
+    // 認証は JWT (Authorization: Bearer)。
     uploadImage: async (groupId: string, pageId: string, file: File) => {
-      const csrf = getCsrfToken();
+      const token = getAccessToken();
       const res = await fetch(
         `${API_URL}/api/rich-menu-groups/${groupId}/pages/${pageId}/image`,
         {
           method: 'POST',
-          credentials: 'include',
           headers: {
             'Content-Type': file.type,
-            ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: file,
         },

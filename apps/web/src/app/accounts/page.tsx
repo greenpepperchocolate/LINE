@@ -14,6 +14,7 @@ import {
 } from '@/components/accounts/account-form-fields'
 import AccountSetupUrls from '@/components/accounts/account-setup-urls'
 import AccountEditModal from '@/components/accounts/account-edit-modal'
+import RelaySecretSetting from '@/components/accounts/relay-secret-setting'
 
 interface LineAccountListItem {
   id: string
@@ -166,6 +167,9 @@ export default function AccountsPage() {
           {error}
         </div>
       )}
+
+      {/* 全体共通の中継Worker共有シークレット (旧 LINE設定画面から統合) */}
+      <RelaySecretSetting />
 
       {justCreated && (
         <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
