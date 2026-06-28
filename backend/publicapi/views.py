@@ -453,3 +453,18 @@ def admin_update_status(request, update_id):
         "id": update_id, "status": "unsupported", "events": [],
         "error": "self-update is not supported on the Django backend",
     })
+
+
+@_api_view(["GET"])
+@_perm([_AllowAny])
+def admin_manifest(request):
+    # 自己アップデート用マニフェスト(スタブ)。現行バージョンに一致する release を
+    # 1件返し、detectFork が vanilla 判定 → バナーは「最新」を表示する。
+    return _Response({
+        "schema_version": 1,
+        "latest": "0.15.0-django",
+        "releases": [{
+            "version": "0.15.0-django",
+            "worker_hash": "", "admin_hash": "", "liff_hash": "",
+        }],
+    })

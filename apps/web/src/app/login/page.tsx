@@ -63,13 +63,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#06C755' }}>
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-white">
+      <div className="glass-card p-8 w-full max-w-sm">
         <div className="text-center mb-6">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg mx-auto mb-3" style={{ backgroundColor: '#06C755' }}>
-            H
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-base mx-auto mb-3 shadow-lg" style={{ background: 'linear-gradient(135deg, #06C755, #0ea5e9)' }}>
+            LV
           </div>
-          <h1 className="text-xl font-bold text-gray-900">L Harness</h1>
+          <h1 className="text-xl font-bold text-gradient">LINE VALUE</h1>
           <p className="text-sm text-gray-500 mt-1">
             {mode === 'login' ? '管理画面にログイン' : '管理アカウントを作成'}
           </p>

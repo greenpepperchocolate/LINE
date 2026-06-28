@@ -197,6 +197,14 @@ function NavIcon({ d }: { d: string }) {
 export default function Sidebar() {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
+  const [collapsed, setCollapsedState] = useState(false)
+  useEffect(() => {
+    setCollapsedState(localStorage.getItem('lh_sidebar_collapsed') === '1')
+  }, [])
+  const setCollapsed = (v: boolean) => {
+    setCollapsedState(v)
+    localStorage.setItem('lh_sidebar_collapsed', v ? '1' : '0')
+  }
   const [staffName, setStaffName] = useState<string | null>(null)
   const [staffRole, setStaffRole] = useState<string | null>(null)
 
@@ -234,29 +242,57 @@ export default function Sidebar() {
 
   const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.startsWith(href)
 
-  const sidebarContent = (
+  const renderContent = (collapsed: boolean, desktop: boolean) => (
     <>
-      {/* ロゴ */}
-      <div className="px-6 py-5 border-b border-gray-200">
+      {/* ロゴ + 折りたたみトグル(デスクトップ) */}
+      <div className={`px-4 py-5 border-b border-white/40 flex items-center ${collapsed ? 'justify-center' : 'justify-between'}`}>
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm" style={{ backgroundColor: '#06C755' }}>
-            H
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs shrink-0" style={{ background: 'linear-gradient(135deg, #06C755, #0ea5e9)' }}>
+            LV
           </div>
-          <div>
-            <p className="text-sm font-bold text-gray-900 leading-tight">L Harness</p>
-            <p className="text-xs text-gray-400">管理画面</p>
-          </div>
+          {!collapsed && (
+            <div>
+              <p className="text-sm font-bold text-gray-900 leading-tight">LINE VALUE</p>
+              <p className="text-xs text-gray-400">管理画面</p>
+            </div>
+          )}
         </div>
+        {desktop && !collapsed && (
+          <button
+            onClick={() => setCollapsed(true)}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-white/60"
+            aria-label="メニューを折りたたむ"
+            title="折りたたむ"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+          </button>
+        )}
       </div>
 
+      {/* 展開ボタン(折りたたみ時) */}
+      {desktop && collapsed && (
+        <button
+          onClick={() => setCollapsed(false)}
+          className="mx-auto mt-2 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-white/60"
+          aria-label="メニューを開く"
+          title="開く"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+          </svg>
+        </button>
+      )}
+
       {/* アカウント切替 */}
-      <AccountSwitcher />
+      {!collapsed && <AccountSwitcher />}
 
       {/* ナビゲーション */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {menuSections.map((section, si) => (
           <div key={si}>
-            {section.label && (
+            {section.label && !collapsed && (
               <div className="pt-5 pb-2 px-3">
                 <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">{section.label}</p>
               </div>
@@ -272,25 +308,29 @@ export default function Sidebar() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  title={collapsed ? item.label : undefined}
+                  className={`relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium border transition-colors ${
+                    collapsed ? 'justify-center' : ''
+                  } ${
                     active
-                      ? 'text-white'
+                      ? isDanger
+                        ? 'border-red-400 text-red-600 bg-transparent'
+                        : 'border-[#06C755] text-[#06C755] bg-transparent'
                       : isDanger
-                        ? 'text-red-500 hover:bg-red-50'
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                        ? 'border-transparent text-red-500 hover:bg-red-50'
+                        : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
-                  style={active ? { backgroundColor: isDanger ? '#EF4444' : '#06C755' } : {}}
                 >
                   <NavIcon d={item.icon} />
-                  <span className="flex-1">{item.label}</span>
+                  {!collapsed && <span className="flex-1">{item.label}</span>}
                   {item.href === '/notifications' && unansweredCount > 0 && (
-                    <span
-                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
-                        active ? 'bg-white text-rose-600' : 'bg-rose-500 text-white'
-                      }`}
-                    >
-                      {unansweredCount > 99 ? '99+' : unansweredCount}
-                    </span>
+                    collapsed ? (
+                      <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500" />
+                    ) : (
+                      <span className="rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums bg-rose-500 text-white">
+                        {unansweredCount > 99 ? '99+' : unansweredCount}
+                      </span>
+                    )
                   )}
                 </Link>
               )
@@ -300,9 +340,9 @@ export default function Sidebar() {
       </nav>
 
       {/* フッター */}
-      <div className="border-t border-gray-200">
-        {staffName && (
-          <div className="px-3 py-2 text-xs text-gray-500 border-t border-gray-100">
+      <div className="border-t border-white/40">
+        {staffName && !collapsed && (
+          <div className="px-3 py-2 text-xs text-gray-500 border-t border-white/30">
             <div className="font-medium text-gray-700">{staffName}</div>
             <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium mt-0.5 ${
               staffRole === 'owner' ? 'bg-yellow-100 text-yellow-800' :
@@ -313,13 +353,15 @@ export default function Sidebar() {
             </span>
           </div>
         )}
-        <div className="px-6 py-4 space-y-3">
+        <div className={`${collapsed ? 'px-2' : 'px-6'} py-4 space-y-3`}>
+        {!collapsed && (
         <div className="space-y-0.5">
-          <p className="text-xs text-gray-400">L Harness v{appVersion}</p>
+          <p className="text-xs text-gray-400">LINE VALUE v{appVersion}</p>
           <p className="text-[10px] text-gray-400 font-mono break-all">
             build {appCommitSha}{appBuildDate ? ` · ${appBuildDate}` : ''}
           </p>
         </div>
+        )}
         <button
           onClick={() => {
             // JWT 方式: クライアント側でトークンを破棄するだけでログアウト完了。
@@ -329,12 +371,13 @@ export default function Sidebar() {
             localStorage.removeItem('lh_staff_role')
             window.location.href = '/login'
           }}
-          className="flex items-center gap-2 text-xs text-gray-400 hover:text-red-500 transition-colors"
+          title="ログアウト"
+          className={`flex items-center gap-2 rounded-lg font-medium text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors ${collapsed ? 'justify-center w-full p-2.5' : 'w-full px-3 py-2.5 text-sm'}`}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
-          ログアウト
+          {!collapsed && 'ログアウト'}
         </button>
         </div>
       </div>
@@ -344,7 +387,7 @@ export default function Sidebar() {
   return (
     <>
       {/* モバイル: ハンバーガーヘッダー */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 glass-strong border-b border-white/40 px-4 py-3 flex items-center gap-3">
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
@@ -358,8 +401,8 @@ export default function Sidebar() {
           </svg>
         </button>
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-xs" style={{ backgroundColor: '#06C755' }}>H</div>
-          <p className="text-sm font-bold text-gray-900">L Harness</p>
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-[10px]" style={{ background: 'linear-gradient(135deg, #06C755, #0ea5e9)' }}>LV</div>
+          <p className="text-sm font-bold text-gray-900">LINE VALUE</p>
         </div>
       </div>
 
@@ -367,7 +410,7 @@ export default function Sidebar() {
       {isOpen && <div className="lg:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setIsOpen(false)} />}
 
       {/* モバイル: スライドインサイドバー */}
-      <aside className={`lg:hidden fixed top-0 left-0 z-50 w-72 bg-white flex flex-col h-screen transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`lg:hidden fixed top-0 left-0 z-50 w-72 glass-strong flex flex-col h-screen transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="absolute top-4 right-4">
           <button onClick={() => setIsOpen(false)} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-gray-100" aria-label="閉じる">
             <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -375,12 +418,12 @@ export default function Sidebar() {
             </svg>
           </button>
         </div>
-        {sidebarContent}
+        {renderContent(false, false)}
       </aside>
 
-      {/* デスクトップ: 常時表示 */}
-      <aside className="hidden lg:flex w-64 bg-white border-r border-gray-200 flex-col h-screen sticky top-0">
-        {sidebarContent}
+      {/* デスクトップ: 常時表示（折りたたみ可能） */}
+      <aside className={`hidden lg:flex glass-strong border-r border-white/40 flex-col h-screen sticky top-0 transition-[width] duration-300 ${collapsed ? 'w-20' : 'w-64'}`}>
+        {renderContent(collapsed, true)}
       </aside>
     </>
   )

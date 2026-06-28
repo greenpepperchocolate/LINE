@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '@/lib/api'
 import Header from '@/components/layout/header'
-import CcPromptButton from '@/components/cc-prompt-button'
 import TestRecipientsSetting from '@/components/accounts/test-recipients-setting'
 import AccountSettingsSection from '@/components/accounts/account-settings-section'
 import ReorderMode from '@/components/accounts/reorder-mode'
@@ -34,26 +33,6 @@ interface LineAccountListItem {
     messagesThisMonth: number
   }
 }
-
-const ccPrompts = [
-  {
-    title: 'LINEアカウント設定確認',
-    prompt: `現在登録されているLINEアカウントのチャネル設定を確認してください。
-1. 各アカウントのChannel ID・名前・有効/無効ステータスを一覧表示
-2. Channel Access TokenとChannel Secretが正しく設定されているか検証
-3. LINE Developers Consoleとの設定整合性をチェック
-結果をレポートしてください。`,
-  },
-  {
-    title: 'アカウント追加手順',
-    prompt: `新しいLINEアカウントを追加する手順をガイドしてください。
-1. LINE Developers Consoleでのチャネル作成手順を説明
-2. Channel ID、Channel Access Token、Channel Secretの取得方法
-3. CRMへの登録手順と初期設定のベストプラクティス
-手順を示してください。`,
-  },
-]
-
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<LineAccountListItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -340,7 +319,6 @@ export default function AccountsPage() {
           ))}
         </div>
       )}
-      <CcPromptButton prompts={ccPrompts} />
       {showReorder && (
         <ReorderMode
           accounts={accounts.map((a) => ({

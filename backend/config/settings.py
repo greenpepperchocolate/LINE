@@ -136,3 +136,12 @@ LINE_CHANNEL_SECRET = os.environ.get("LINE_CHANNEL_SECRET", "")
 # Cloudflare Workers 中継 → Django webhook を認証する共有シークレット。
 # Worker と Django で同じ値を設定する。
 RELAY_SHARED_SECRET = os.environ.get("RELAY_SHARED_SECRET", "dev-relay-secret-change-me")
+
+# --- 画像ストレージ (Cloudflare R2 / S3 互換) ---
+# 以下がすべて設定されていれば R2 を使用。未設定なら backend/media/ にローカル保存。
+R2_BUCKET = os.environ.get("R2_BUCKET", "")
+R2_ENDPOINT = os.environ.get("R2_ENDPOINT", "")  # https://<account_id>.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID = os.environ.get("R2_ACCESS_KEY_ID", "")
+R2_SECRET_ACCESS_KEY = os.environ.get("R2_SECRET_ACCESS_KEY", "")
+# 公開URL (R2 public bucket / 独自ドメイン)。設定時は画像配信をそこへリダイレクト。
+R2_PUBLIC_BASE_URL = os.environ.get("R2_PUBLIC_BASE_URL", "")

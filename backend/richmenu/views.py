@@ -240,56 +240,46 @@ def test_recipients(request):
 # ----------------------------------------------------------------------------
 # リッチメニュー画像配信 (公開) — /api/rich-menu-images/<key>
 # ----------------------------------------------------------------------------
-import os  # noqa: E402
-
 from django.conf import settings as dj_settings  # noqa: E402
-from django.http import FileResponse, Http404  # noqa: E402
+from django.http import Http404, HttpResponse  # noqa: E402
+from django.shortcuts import redirect  # noqa: E402
 from rest_framework.decorators import permission_classes  # noqa: E402
 from rest_framework.permissions import AllowAny  # noqa: E402
+
+from common import storage  # noqa: E402
+
+_EXT_BY_CT = {"image/png": "png", "image/jpeg": "jpg", "image/jpg": "jpg"}
 
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def rich_menu_image(request, key):
-    """media/ 配下に保存された画像を配信。img src から直接アクセスされる(認証不要)。"""
-    base = os.path.normpath(os.path.join(dj_settings.BASE_DIR, "media"))
-    path = os.path.normpath(os.path.join(base, key))
-    if not path.startswith(base) or not os.path.isfile(path):
+    """画像配信 (R2 or ローカル)。img src から直接アクセスされる(認証不要)。"""
+    # R2 公開URLがある場合はそこへリダイレクト (CDN/独自ドメイン配信)
+    if dj_settings.R2_PUBLIC_BASE_URL and storage.is_r2_enabled():
+        return redirect(storage.public_url(key))
+    res = storage.load_image(key)
+    if not res:
         raise Http404("image not found")
-    return FileResponse(open(path, "rb"))
-
-
-# ----------------------------------------------------------------------------
-# リッチメニュー ページ画像アップロード / external 画像
-# ----------------------------------------------------------------------------
-import os  # noqa: E402
-
-from django.conf import settings as dj_settings  # noqa: E402
-from django.http import Http404  # noqa: E402
-from rest_framework.decorators import permission_classes  # noqa: E402
-from rest_framework.permissions import AllowAny  # noqa: E402
-
-_EXT_BY_CT = {"image/png": "png", "image/jpeg": "jpg", "image/jpg": "jpg"}
+    data, ct = res
+    return HttpResponse(data, content_type=ct)
 
 
 @api_view(["POST"])
 def rich_menu_page_image(request, id, page_id):
-    """ページ画像をアップロード (Content-Type: image/* の生バイナリ)。"""
+    """ページ画像をアップロード (Content-Type: image/* の生バイナリ)。R2 or ローカル。"""
     page = get_object_or_404(RichMenuPage, id=page_id, group_id=id)
     data = request.body
     if not data:
         return err("画像データがありません", status=400)
     ct = request.headers.get("Content-Type", "image/png").split(";")[0].strip()
     ext = _EXT_BY_CT.get(ct, "png")
-    key = f"richmenu/{page_id}.{ext}"
-    path = os.path.join(dj_settings.BASE_DIR, "media", key)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "wb") as fh:
-        fh.write(data)
+    key = f"rich-menus/{id}/{page_id}.{ext}"
+    storage.save_image(key, data, ct)
     page.image_r2_key = key
     page.image_content_type = ct
     page.save(update_fields=["image_r2_key", "image_content_type", "updated_at"])
-    return ok({"imageR2Key": key, "imageUrl": f"/api/rich-menu-images/{key}"})
+    return ok({"imageR2Key": key, "imageUrl": storage.public_url(key, request)})
 
 
 @api_view(["GET"])

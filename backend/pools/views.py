@@ -139,13 +139,10 @@ def upload_image(request):
     file_id = str(uuid_lib.uuid4())
     key = f"uploads/{file_id}{ext}"
 
-    media_root = os.path.join(str(settings.BASE_DIR), "media")
-    dest = os.path.join(media_root, *key.split("/"))
-    os.makedirs(os.path.dirname(dest), exist_ok=True)
-    with open(dest, "wb") as f:
-        f.write(content)
-
-    url = request.build_absolute_uri(f"/media/{key}")
+    # R2 (env 設定時) or ローカル(media/) に保存。
+    from common.storage import public_url, save_image
+    save_image(key, content, content_type)
+    url = public_url(key, request)
     return ok(
         {
             "id": file_id,

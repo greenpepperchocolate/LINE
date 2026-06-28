@@ -1,1 +1,79 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+/* ============================================================
+   LINE VALUE 管理画面 — クリーン & モダン（白背景）
+   背景は白、フォントは Inter + Noto Sans JP。
+   ============================================================ */
+
+:root {
+  --brand: #06c755;
+}
+
+html, body { min-height: 100%; }
+body {
+  background: #ffffff;
+  color: #111827;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-family: 'Inter', 'Noto Sans JP', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', system-ui, sans-serif;
+  letter-spacing: 0.01em;
+}
+
+/* 旧グラスユーティリティはソリッド白に統一（共通コンポーネントが使用） */
+@layer utilities {
+  .glass,
+  .glass-strong {
+    background: #ffffff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid #eceef1;
+    box-shadow: none;
+  }
+  .glass-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 4px 12px rgba(16, 24, 40, 0.06);
+    border-radius: 1rem;
+  }
+  .text-gradient {
+    background: linear-gradient(120deg, #06c755, #0ea5e9 60%, #6366f1);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+/* 角丸を少し現代的に */
+.rounded-lg { border-radius: 0.75rem; }
+.rounded-xl { border-radius: 1rem; }
+.rounded-2xl { border-radius: 1.25rem; }
+
+/* 入力欄フォーカス（控えめなブランドリング） */
+input:focus, select:focus, textarea:focus {
+  box-shadow: 0 0 0 3px rgba(6, 199, 85, 0.15);
+  border-color: rgba(6, 199, 85, 0.5);
+  outline: none;
+}
+
+/* 滑らかなトランジション */
+button, a, input, select, textarea {
+  transition: background-color .16s ease, color .16s ease,
+    box-shadow .16s ease, border-color .16s ease, transform .12s ease;
+}
+button:active { transform: translateY(0.5px); }
+
+/* カスタムスクロールバー */
+* { scrollbar-width: thin; scrollbar-color: rgba(100,116,139,0.3) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.28); border-radius: 9999px; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,0.45); }
+
+/* ページ表示時のふわっとフェードイン */
+@keyframes lh-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+main > div { animation: lh-fade-in .3s ease both; }

@@ -9,6 +9,7 @@ env/
 db.sqlite3
 db.sqlite3-journal
 /staticfiles/
+/media/
 
 # 環境変数 (秘密情報)
 .env

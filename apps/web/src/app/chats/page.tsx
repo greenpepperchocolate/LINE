@@ -5,7 +5,6 @@ import { parseStickerMessageContent, stickerFallback } from '@line-crm/shared'
 import { api, fetchApi } from '@/lib/api'
 import { useAccount } from '@/contexts/account-context'
 import Header from '@/components/layout/header'
-import CcPromptButton from '@/components/cc-prompt-button'
 import FlexPreviewComponent from '@/components/flex-preview'
 import FriendInfoSidebar from '@/components/chats/friend-info-sidebar'
 import ImageUploader, { type ImageUploaderValue } from '@/components/shared/image-uploader'
@@ -102,26 +101,6 @@ function formatYmdSlash(iso: string): string {
   const d = new Date(iso)
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
 }
-
-const ccPrompts = [
-  {
-    title: 'チャット対応テンプレート',
-    prompt: `チャット対応で使えるテンプレートメッセージを作成してください。
-1. よくある質問への回答テンプレート（挨拶、FAQ、サポート）
-2. クレーム対応用の丁寧な返信テンプレート
-3. フォローアップメッセージのテンプレート
-手順を示してください。`,
-  },
-  {
-    title: '未対応チャット確認',
-    prompt: `未対応のチャットを確認し、対応優先度を整理してください。
-1. 未読・対応中のチャット数を集計
-2. 最終メッセージからの経過時間で優先度を判定
-3. 長時間未対応のチャットへの対応アクションを提案
-結果をレポートしてください。`,
-  },
-]
-
 interface FriendItem {
   id: string
   displayName: string
@@ -1131,7 +1110,6 @@ export default function ChatsPage() {
           </div>
         )}
       </div>
-      <CcPromptButton prompts={ccPrompts} />
     </div>
   )
 }

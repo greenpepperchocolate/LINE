@@ -19,6 +19,7 @@ urlpatterns = [
     # 自己アップデートのスタブ (Django 非対応)。Django admin より先に定義して
     # /admin/ include に飲み込まれないようにする。
     path("admin/version", public_views.admin_version),
+    path("admin/manifest", public_views.admin_manifest),
     path("admin/update/history", public_views.admin_update_history),
     path("admin/update/start", public_views.admin_update_start),
     path("admin/update/status/<str:update_id>", public_views.admin_update_status),

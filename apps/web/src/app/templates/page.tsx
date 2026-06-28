@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { api } from '@/lib/api'
 import Header from '@/components/layout/header'
 import FlexPreviewComponent from '@/components/flex-preview'
-import CcPromptButton from '@/components/cc-prompt-button'
 import ImageUploader from '@/components/shared/image-uploader'
 
 interface Template {
@@ -57,18 +56,6 @@ function formatDate(iso: string): string {
     minute: '2-digit',
   })
 }
-
-const ccPrompts = [
-  {
-    title: 'テンプレート作成',
-    prompt: `新しいメッセージテンプレートの作成をサポートしてください。
-1. 用途別（挨拶、キャンペーン、通知、フォローアップ）のテンプレート文例を提案
-2. テキスト・Flexメッセージそれぞれの効果的な使い方
-3. カテゴリ分類と命名規則のベストプラクティス
-手順を示してください。`,
-  },
-]
-
 export default function TemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([])
   const [loading, setLoading] = useState(true)
@@ -596,7 +583,6 @@ export default function TemplatesPage() {
         </>
       )}
 
-      <CcPromptButton prompts={ccPrompts} />
     </div>
   )
 }
