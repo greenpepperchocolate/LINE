@@ -35,6 +35,16 @@ def register(request):
         return err("入力内容に誤りがあります", status=400, details=serializer.errors)
 
     user = serializer.save()
+    # Django Admin (/admin/) のアクセス権を role に応じて付与。
+    #   owner → 管理サイト + 全権限(superuser)
+    #   admin → 管理サイトアクセス(is_staff)
+    if user.role == "owner":
+        user.is_staff = True
+        user.is_superuser = True
+        user.save(update_fields=["is_staff", "is_superuser"])
+    elif user.role == "admin":
+        user.is_staff = True
+        user.save(update_fields=["is_staff"])
     return ok(UserSerializer(user).data, status=201, **_tokens_for(user))
 
 

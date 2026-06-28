@@ -3,14 +3,14 @@ import uuid
 
 from django.db import models
 
+
+def generate_api_key():
+    """旧 StaffMember 用 (削除済み)。過去マイグレーション 0001 が参照するため残置。"""
+    return secrets.token_urlsafe(32)
+
 # 管理画面の「ユーザー / スタッフ管理 / アカウントヘルス・移行」用モデル。
 # ID は他アプリ (crm / accounts) と同様 UUID。
 # crm.Friend.user_id は CharField なので、User.id (UUID) を文字列で紐づける。
-
-
-def generate_api_key():
-    """スタッフ用 API キー (URL-safe ランダム文字列) を生成する。"""
-    return secrets.token_urlsafe(32)
 
 
 class User(models.Model):
@@ -33,35 +33,6 @@ class User(models.Model):
 
     def __str__(self):
         return self.display_name or self.email or str(self.id)
-
-
-class StaffMember(models.Model):
-    """
-    オペレーター (スタッフ)。API キー発行を持つ。
-    ログイン用の accounts.User とは別概念 (運用メンバーの管理レコード)。
-    """
-
-    ROLE_CHOICES = (
-        ("owner", "owner"),
-        ("admin", "admin"),
-        ("staff", "staff"),
-    )
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=255)
-    email = models.EmailField(null=True, blank=True)
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="staff")
-    api_key = models.CharField(max_length=255, unique=True, default=generate_api_key)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = "staff_members"
-        ordering = ["-created_at"]
-
-    def __str__(self):
-        return self.name
 
 
 class AccountHealthLog(models.Model):

@@ -1,19 +1,12 @@
 from django.contrib import admin
 
-from .models import AccountHealthLog, AccountMigration, StaffMember, User
+from .models import AccountHealthLog, AccountMigration, User
 
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
     list_display = ("display_name", "email", "phone", "external_id", "created_at")
     search_fields = ("display_name", "email", "phone", "external_id")
-
-
-@admin.register(StaffMember)
-class StaffMemberAdmin(admin.ModelAdmin):
-    list_display = ("name", "email", "role", "is_active", "created_at")
-    list_filter = ("role", "is_active")
-    search_fields = ("name", "email")
 
 
 @admin.register(AccountHealthLog)

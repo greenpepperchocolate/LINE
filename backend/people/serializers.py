@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import AccountHealthLog, AccountMigration, StaffMember, User
+from .models import AccountHealthLog, AccountMigration, User
 
 # フロント (@line-crm/shared の型) は camelCase を期待するため、
 # snake_case のモデルフィールドを camelCase にマップする。
@@ -17,18 +17,6 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ("id", "email", "phone", "externalId", "displayName", "createdAt", "updatedAt")
-
-
-class StaffMemberSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField(required=False, allow_null=True, allow_blank=True)
-    apiKey = serializers.CharField(source="api_key", read_only=True)
-    isActive = serializers.BooleanField(source="is_active", required=False)
-    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
-    updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
-
-    class Meta:
-        model = StaffMember
-        fields = ("id", "name", "email", "role", "apiKey", "isActive", "createdAt", "updatedAt")
 
 
 class AccountHealthLogSerializer(serializers.ModelSerializer):

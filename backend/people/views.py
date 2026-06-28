@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.decorators import api_view
@@ -5,14 +6,41 @@ from rest_framework.decorators import api_view
 from common.responses import err, ok
 from crm.models import Friend, LineAccount, Message
 
-from .models import AccountHealthLog, AccountMigration, StaffMember, User
-from .models import generate_api_key
+from .models import AccountHealthLog, AccountMigration, User
 from .serializers import (
     AccountHealthLogSerializer,
     AccountMigrationSerializer,
-    StaffMemberSerializer,
     UserSerializer,
 )
+
+# スタッフ = ログインアカウント (accounts.User)。people.User とは別。
+AuthUser = get_user_model()
+
+
+def _staff_dict(u):
+    return {
+        "id": str(u.id),
+        "name": getattr(u, "name", "") or "",
+        "email": u.email,
+        "role": getattr(u, "role", "staff"),
+        "isActive": u.is_active,
+        "createdAt": u.created_at.isoformat() if getattr(u, "created_at", None) else None,
+        "updatedAt": None,
+    }
+
+
+def _apply_role_flags(u, role):
+    """role に応じて Django Admin 権限を同期 (owner→superuser, admin→staff)。"""
+    u.role = role
+    if role == "owner":
+        u.is_staff = True
+        u.is_superuser = True
+    elif role == "admin":
+        u.is_staff = True
+        u.is_superuser = False
+    else:
+        u.is_staff = False
+        u.is_superuser = False
 
 # 認証はグローバル設定 (IsAuthenticated) により全て JWT 必須。
 
@@ -187,18 +215,28 @@ def users_grouped(request):
 @api_view(["GET", "POST"])
 def staff_list(request):
     if request.method == "GET":
-        qs = StaffMember.objects.all()
-        return ok(StaffMemberSerializer(qs, many=True).data)
+        users = AuthUser.objects.all().order_by("created_at")
+        return ok([_staff_dict(u) for u in users])
 
+    # スタッフ追加 = ログインアカウント (accounts.User) を作成
     name = request.data.get("name")
-    if not name:
-        return err("name は必須です", status=400)
-    staff = StaffMember.objects.create(
-        name=name,
-        email=request.data.get("email") or None,
-        role=request.data.get("role") or "staff",
-    )
-    return ok(StaffMemberSerializer(staff).data, status=201)
+    email = request.data.get("email")
+    password = request.data.get("password")
+    role = request.data.get("role") or "staff"
+    if role not in ("owner", "admin", "staff"):
+        role = "staff"
+    if not name or not email or not password:
+        return err("名前・メール・初期パスワードは必須です", status=400)
+    if len(password) < 8:
+        return err("パスワードは8文字以上にしてください", status=400)
+    if AuthUser.objects.filter(email__iexact=email).exists():
+        return err("このメールアドレスは既に登録されています", status=409)
+
+    u = AuthUser(email=email, name=name)
+    _apply_role_flags(u, role)
+    u.set_password(password)
+    u.save()
+    return ok(_staff_dict(u), status=201)
 
 
 @api_view(["GET"])
@@ -215,34 +253,26 @@ def staff_me(request):
 
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
 def staff_detail(request, id):
-    staff = get_object_or_404(StaffMember, id=id)
+    u = get_object_or_404(AuthUser, id=id)
 
     if request.method == "GET":
-        return ok(StaffMemberSerializer(staff).data)
+        return ok(_staff_dict(u))
 
     if request.method == "DELETE":
-        staff.delete()
+        u.delete()
         return ok(None)
 
     data = request.data
     if "name" in data:
-        staff.name = data.get("name")
-    if "email" in data:
-        staff.email = data.get("email") or None
-    if "role" in data:
-        staff.role = data.get("role")
+        u.name = data.get("name") or ""
+    if data.get("email"):
+        u.email = data.get("email")
+    if data.get("role"):
+        _apply_role_flags(u, data.get("role"))
     if "isActive" in data:
-        staff.is_active = bool(data.get("isActive"))
-    staff.save()
-    return ok(StaffMemberSerializer(staff).data)
-
-
-@api_view(["POST"])
-def staff_regenerate_key(request, id):
-    staff = get_object_or_404(StaffMember, id=id)
-    staff.api_key = generate_api_key()
-    staff.save(update_fields=["api_key", "updated_at"])
-    return ok({"apiKey": staff.api_key})
+        u.is_active = bool(data.get("isActive"))
+    u.save()
+    return ok(_staff_dict(u))
 
 
 # ----------------------------------------------------------------------------

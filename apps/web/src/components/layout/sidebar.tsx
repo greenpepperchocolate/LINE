@@ -314,8 +314,8 @@ export default function Sidebar() {
                   } ${
                     active
                       ? isDanger
-                        ? 'border-red-400 text-red-600 bg-transparent'
-                        : 'border-[#06C755] text-[#06C755] bg-transparent'
+                        ? 'border-red-400 text-gray-900 bg-transparent'
+                        : 'border-[#06C755] text-gray-900 bg-transparent'
                       : isDanger
                         ? 'border-transparent text-red-500 hover:bg-red-50'
                         : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900'

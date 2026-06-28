@@ -15,7 +15,6 @@ urlpatterns = [
     path("staff", views.staff_list),
     path("staff/me", views.staff_me),
     path("staff/<uuid:id>", views.staff_detail),
-    path("staff/<uuid:id>/regenerate-key", views.staff_regenerate_key),
     # Inbox (未返信)
     path("inbox/unanswered/count", views.inbox_unanswered_count),
     path("inbox/unanswered", views.inbox_unanswered),
