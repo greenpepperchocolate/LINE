@@ -17,11 +17,15 @@ LINE設定 (LineSettings) / 環境変数の値にフォールバックする。
 import base64
 import hashlib
 import hmac
+import json
+import mimetypes
 
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+
+from common import storage
 
 from . import line_client
 from .config import get_line_access_token, get_line_channel_secret, get_relay_secret
@@ -43,7 +47,7 @@ def _ensure_friend(line_user_id, access_token=None):
     )
 
 
-def _handle_follow(event, access_token=None):
+def _handle_follow(event, access_token=None, request=None):
     user_id = event.get("source", {}).get("userId")
     if not user_id:
         return
@@ -73,7 +77,7 @@ def _handle_follow(event, access_token=None):
                 enrollment.save(update_fields=["current_step_order", "updated_at"])
 
 
-def _handle_unfollow(event, access_token=None):
+def _handle_unfollow(event, access_token=None, request=None):
     user_id = event.get("source", {}).get("userId")
     if not user_id:
         return
@@ -88,37 +92,110 @@ def _matches(auto_reply, text):
     return auto_reply.keyword in text
 
 
-def _handle_message(event, access_token=None):
+_MEDIA_LABELS = {
+    "image": "[画像]", "video": "[動画]", "audio": "[音声]",
+    "file": "[ファイル]", "location": "[位置情報]",
+}
+
+
+_DEFAULT_STICKER_URL = "https://stickershop.line-scdn.net/stickershop/v1/sticker/{sid}/iPhone/sticker@2x.png"
+
+
+def _ext_for(content_type):
+    ext = mimetypes.guess_extension((content_type or "").split(";")[0].strip() or "")
+    return (ext or ".bin").lstrip(".")
+
+
+def _save_media(data, content_type, key, request):
+    """R2 (env あり) or ローカル (media/) に保存し、配信用 URL を返す。"""
+    storage.save_image(key, data, content_type or "application/octet-stream")
+    return storage.public_url(key, request)
+
+
+def _sticker_content(message):
+    """
+    スタンプをフロント (parseStickerMessageContent) が解釈できる JSON にする。
+    スタンプ画像は公開・恒久的な LINE CDN にあるため保存せず、CDN URL を直接参照する。
+    """
+    sid = str(message.get("stickerId") or "")
+    pid = message.get("packageId")
+    return json.dumps({
+        "type": "sticker",
+        "packageId": str(pid) if pid else None,
+        "stickerId": sid,
+        "stickerResourceType": message.get("stickerResourceType"),
+        "stickerUrl": _DEFAULT_STICKER_URL.format(sid=sid),
+        "fallback": "[スタンプ]",
+    }, ensure_ascii=False)
+
+
+def _handle_message(event, access_token=None, request=None):
     user_id = event.get("source", {}).get("userId")
     message = event.get("message", {})
-    if not user_id or message.get("type") != "text":
+    mtype = message.get("type")
+    if not user_id or not mtype:
         return
-    text = message.get("text", "")
     friend = _ensure_friend(user_id, access_token)
     now = timezone.now()
 
-    Message.objects.create(
-        friend=friend, direction="incoming", message_type="text", content=text,
-    )
+    text = ""
+    if mtype == "text":
+        # テキスト (Unicode 絵文字はそのまま content に含まれる)
+        text = message.get("text", "")
+        Message.objects.create(
+            friend=friend, direction="incoming", message_type="text", content=text,
+        )
+    elif mtype == "sticker":
+        Message.objects.create(
+            friend=friend, direction="incoming", message_type="sticker",
+            content=_sticker_content(message),
+        )
+    elif mtype in ("image", "video", "audio", "file"):
+        # 実体を LINE コンテンツ API で取得し R2/ローカルへ保存。content=保存先URL。
+        content = _MEDIA_LABELS.get(mtype, f"[{mtype}]")
+        msg_id = message.get("id")
+        fetched = line_client.get_message_content(msg_id, access_token) if msg_id else None
+        if fetched:
+            data, ct = fetched
+            key = f"line-media/{friend.id}/{msg_id}.{_ext_for(ct)}"
+            try:
+                content = _save_media(data, ct, key, request)
+            except Exception:  # noqa: BLE001
+                content = _MEDIA_LABELS.get(mtype, f"[{mtype}]")
+        Message.objects.create(
+            friend=friend, direction="incoming", message_type=mtype, content=content,
+        )
+    else:
+        # 位置情報 等はプレースホルダで記録
+        Message.objects.create(
+            friend=friend, direction="incoming", message_type=mtype,
+            content=_MEDIA_LABELS.get(mtype, f"[{mtype}]"),
+        )
 
+    # キーワード自動応答 (テキストのみ) を先に判定
+    matched_auto_reply = False
+    if mtype == "text":
+        reply_token = event.get("replyToken")
+        for ar in AutoReply.objects.filter(is_active=True):
+            if _matches(ar, text):
+                matched_auto_reply = True
+                if reply_token:
+                    sent, _ = line_client.reply_text(reply_token, ar.response_content, access_token)
+                    if sent:
+                        Message.objects.create(
+                            friend=friend, direction="outgoing",
+                            message_type=ar.response_type, content=ar.response_content,
+                            delivery_type="reply",
+                        )
+                break
+
+    # チャット更新: 自動応答で処理されなかった受信は「未読(要対応)」にする。
+    # (オペレーター対応中でも新着があれば未読に戻して気付けるようにする)
     chat, _ = Chat.objects.get_or_create(friend=friend)
     chat.last_message_at = now
-    if chat.status == "resolved":
+    if not matched_auto_reply:
         chat.status = "unread"
     chat.save()
-
-    reply_token = event.get("replyToken")
-    for ar in AutoReply.objects.filter(is_active=True):
-        if _matches(ar, text):
-            if reply_token:
-                sent, _ = line_client.reply_text(reply_token, ar.response_content, access_token)
-                if sent:
-                    Message.objects.create(
-                        friend=friend, direction="outgoing",
-                        message_type=ar.response_type, content=ar.response_content,
-                        delivery_type="reply",
-                    )
-            break
 
 
 _HANDLERS = {
@@ -178,7 +255,7 @@ def line_webhook(request):
         try:
             handler = _HANDLERS.get(event.get("type"))
             if handler:
-                handler(event, access_token)
+                handler(event, access_token, request)
         except Exception as exc:  # noqa: BLE001 — 1件の失敗で全体を止めない
             print(f"[line_webhook] event error: {exc}")
 

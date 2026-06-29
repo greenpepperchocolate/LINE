@@ -197,7 +197,8 @@ class MessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Message
-        fields = ("id", "content", "messageType", "senderType", "createdAt")
+        # direction は吹き出しの左右判定 (outgoing=右 / incoming=左) に使う
+        fields = ("id", "content", "messageType", "direction", "senderType", "createdAt")
 
     def get_senderType(self, obj):
         # incoming = 友だち, outgoing = オペレーター
@@ -205,18 +206,56 @@ class MessageSerializer(serializers.ModelSerializer):
 
 
 class ChatSerializer(serializers.ModelSerializer):
+    # フロントはチャット識別子に friend_id を使う (id === friendId)。
+    id = serializers.SerializerMethodField()
     friendId = serializers.PrimaryKeyRelatedField(source="friend", read_only=True)
+    friendName = serializers.SerializerMethodField()
+    friendPictureUrl = serializers.SerializerMethodField()
     operatorId = serializers.CharField(source="operator_id", required=False, allow_null=True)
+    sendMode = serializers.SerializerMethodField()
     lastMessageAt = serializers.DateTimeField(source="last_message_at", read_only=True, allow_null=True)
+    lastMessageContent = serializers.SerializerMethodField()
+    lastMessageDirection = serializers.SerializerMethodField()
+    lastMessageType = serializers.SerializerMethodField()
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
     updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
 
     class Meta:
         model = Chat
         fields = (
-            "id", "friendId", "operatorId", "status", "notes",
-            "lastMessageAt", "createdAt", "updatedAt",
+            "id", "friendId", "friendName", "friendPictureUrl", "operatorId",
+            "status", "notes", "sendMode", "lastMessageAt", "lastMessageContent",
+            "lastMessageDirection", "lastMessageType", "createdAt", "updatedAt",
         )
+
+    def get_id(self, obj):
+        return str(obj.friend_id)
+
+    def _last_message(self, obj):
+        if not hasattr(obj, "_cached_last"):
+            obj._cached_last = obj.friend.messages.order_by("-created_at").first()
+        return obj._cached_last
+
+    def get_friendName(self, obj):
+        return obj.friend.display_name or obj.friend.line_user_id or "LINE友だち"
+
+    def get_friendPictureUrl(self, obj):
+        return obj.friend.picture_url
+
+    def get_sendMode(self, obj):
+        return "push"
+
+    def get_lastMessageContent(self, obj):
+        m = self._last_message(obj)
+        return m.content if m else None
+
+    def get_lastMessageDirection(self, obj):
+        m = self._last_message(obj)
+        return m.direction if m else None
+
+    def get_lastMessageType(self, obj):
+        m = self._last_message(obj)
+        return m.message_type if m else None
 
 
 class ChatDetailSerializer(ChatSerializer):
@@ -287,16 +326,40 @@ class LineAccountListSerializer(serializers.ModelSerializer):
     """一覧用 (シークレット類は省略)。"""
 
     channelId = serializers.CharField(source="channel_id")
+    displayName = serializers.SerializerMethodField()
+    pictureUrl = serializers.SerializerMethodField()
+    basicId = serializers.SerializerMethodField()
     loginChannelId = serializers.CharField(source="login_channel_id", allow_null=True)
     liffId = serializers.CharField(source="liff_id", allow_null=True)
     isActive = serializers.BooleanField(source="is_active")
     displayOrder = serializers.IntegerField(source="display_order")
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
     updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
+    stats = serializers.SerializerMethodField()
 
     class Meta:
         model = LineAccount
         fields = (
-            "id", "channelId", "name", "loginChannelId", "liffId",
-            "isActive", "country", "role", "displayOrder", "createdAt", "updatedAt",
+            "id", "channelId", "name", "displayName", "pictureUrl", "basicId",
+            "loginChannelId", "liffId", "isActive", "country", "role",
+            "displayOrder", "createdAt", "updatedAt", "stats",
         )
+
+    def get_displayName(self, obj):
+        return obj.name
+
+    def get_pictureUrl(self, obj):
+        return None
+
+    def get_basicId(self, obj):
+        return None
+
+    def get_stats(self, obj):
+        # 友だち等はアカウント横断管理のため当面グローバル集計。
+        from django.utils import timezone
+        start = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        return {
+            "friendCount": Friend.objects.count(),
+            "activeScenarios": Scenario.objects.filter(is_active=True).count(),
+            "messagesThisMonth": Message.objects.filter(created_at__gte=start).count(),
+        }

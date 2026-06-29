@@ -42,6 +42,35 @@ export default function AccountEditModal({
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [loadingDetail, setLoadingDetail] = useState(true)
+
+  // 詳細API (シークレット込み) を取得して各欄に現在値を表示する。
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await api.lineAccounts.get(accountId)
+        if (!cancelled && res.success) {
+          const d = res.data
+          setState((s) => ({
+            ...s,
+            name: d.name ?? s.name,
+            channelId: d.channelId ?? s.channelId,
+            channelAccessToken: d.channelAccessToken ?? '',
+            channelSecret: d.channelSecret ?? '',
+            loginChannelId: d.loginChannelId ?? '',
+            loginChannelSecret: d.loginChannelSecret ?? '',
+            liffId: d.liffId ?? '',
+          }))
+        }
+      } catch {
+        // 取得失敗時は一覧由来の初期値のまま (シークレットは空)
+      } finally {
+        if (!cancelled) setLoadingDetail(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [accountId])
 
   // Lock background scroll while modal open. Restore on unmount so navigation
   // away mid-edit doesn't leave the page in a non-scrollable state.
@@ -145,13 +174,17 @@ export default function AccountEditModal({
             />
           </div>
 
+          {loadingDetail && (
+            <p className="text-xs text-gray-500">現在の設定を読み込み中…</p>
+          )}
+
           <AccountFormSections
             state={state}
             update={update}
             showMessagingRequired={false}
             channelIdEditable={false}
             defaultOpen={{
-              messaging: false,
+              messaging: true,
               // Open Login/LIFF by default in edit mode if they're empty,
               // since "I want to fill these in" is the most common edit
               // intent now that they were previously SQL-only.

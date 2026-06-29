@@ -67,3 +67,32 @@ def get_profile(line_user_id, access_token=None):
             return json.loads(resp.read().decode("utf-8"))
     except Exception:  # noqa: BLE001
         return None
+
+
+LINE_DATA_BASE = "https://api-data.line.me/v2/bot"
+
+
+def get_message_content(message_id, access_token=None):
+    """受信メッセージの実体 (画像/動画/音声/ファイル) を取得。(bytes, content_type) or None。"""
+    token = access_token or get_line_access_token()
+    if not token:
+        return None
+    req = urllib.request.Request(
+        f"{LINE_DATA_BASE}/message/{message_id}/content",
+        headers={"Authorization": f"Bearer {token}"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return resp.read(), resp.headers.get("Content-Type", "application/octet-stream")
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def download_bytes(url):
+    """公開 URL (スタンプ画像など) をダウンロード。(bytes, content_type) or None。"""
+    try:
+        with urllib.request.urlopen(url, timeout=30) as resp:
+            return resp.read(), resp.headers.get("Content-Type", "image/png")
+    except Exception:  # noqa: BLE001
+        return None

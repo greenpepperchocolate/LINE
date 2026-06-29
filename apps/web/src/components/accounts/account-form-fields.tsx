@@ -128,7 +128,7 @@ export function AccountFormSections({
       >
         {channelIdEditable ? (
           <TextField
-            label="Channel ID"
+            label="チャネルID"
             value={state.channelId}
             onChange={(v) => update({ channelId: v })}
             placeholder="123456789"
@@ -136,7 +136,7 @@ export function AccountFormSections({
           />
         ) : (
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Channel ID</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1"> チャネルID</label>
             <input
               value={state.channelId}
               readOnly
@@ -144,12 +144,12 @@ export function AccountFormSections({
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono bg-gray-50 text-gray-500 cursor-not-allowed"
             />
             <p className="text-[11px] text-gray-400 mt-1">
-              Channel ID は変更できません（LINE 側で固定の識別子）
+              チャネルIDは変更できません（LINE 側で固定の識別子）
             </p>
           </div>
         )}
         <TextField
-          label="Channel Access Token"
+          label="チャネルアクセストークン（長期）"
           value={state.channelAccessToken}
           onChange={(v) => update({ channelAccessToken: v })}
           required={showMessagingRequired}
@@ -161,7 +161,7 @@ export function AccountFormSections({
           }
         />
         <TextField
-          label="Channel Secret"
+          label="チャネルシークレット"
           value={state.channelSecret}
           onChange={(v) => update({ channelSecret: v })}
           required={showMessagingRequired}
@@ -176,14 +176,14 @@ export function AccountFormSections({
         defaultOpen={defaultOpen?.login ?? false}
       >
         <TextField
-          label="Login Channel ID"
+          label="Login チャネルID"
           value={state.loginChannelId}
           onChange={(v) => update({ loginChannelId: v })}
           placeholder="2009624792"
-          hint="LINE Developers > Login channel > Channel ID"
+          hint="LINE Developers > Login channel > チャネルID"
         />
         <TextField
-          label="Login Channel Secret"
+          label="Login チャネルシークレット"
           value={state.loginChannelSecret}
           onChange={(v) => update({ loginChannelSecret: v })}
           type="password"

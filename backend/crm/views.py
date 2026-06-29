@@ -286,11 +286,31 @@ def scenario_steps_reorder(request, scenario_id):
 @api_view(["GET", "POST"])
 def chats_list(request):
     if request.method == "GET":
-        qs = Chat.objects.select_related("friend")
+        qs = Chat.objects.select_related("friend").prefetch_related("friend__messages")
+
+        # ステータス絞り込み (未読 / 対応中 / 解決済)。'all' は絞らない。
         status = request.query_params.get("status")
-        if status:
+        if status and status != "all":
             qs = qs.filter(status=status)
-        return ok(ChatSerializer(qs, many=True).data)
+
+        # 担当オペレーター絞り込み
+        operator_id = request.query_params.get("operatorId")
+        if operator_id:
+            qs = qs.filter(operator_id=operator_id)
+
+        chats = list(qs)
+
+        # 未対応のみ: 最新メッセージが incoming (= まだ返信していない) のチャット
+        unanswered = request.query_params.get("unansweredOnly")
+        if unanswered in ("1", "true", "True"):
+            def _is_unanswered(c):
+                last = c.friend.messages.all().order_by("-created_at").first()
+                return bool(last and last.direction == "incoming")
+            chats = [c for c in chats if _is_unanswered(c)]
+
+        # 最新メッセージ順 (新しい順)
+        chats.sort(key=lambda c: c.last_message_at or c.created_at, reverse=True)
+        return ok(ChatSerializer(chats, many=True).data)
 
     friend_id = request.data.get("friendId")
     friend = get_object_or_404(Friend, id=friend_id)
@@ -304,7 +324,10 @@ def chats_list(request):
 
 @api_view(["GET", "PUT"])
 def chat_detail(request, chat_id):
-    chat = get_object_or_404(Chat.objects.select_related("friend"), id=chat_id)
+    # フロントは friend_id をチャット識別子として渡す。無ければ自動作成。
+    friend = get_object_or_404(Friend, id=chat_id)
+    chat, _ = Chat.objects.get_or_create(friend=friend)
+    chat = Chat.objects.select_related("friend").get(pk=chat.pk)
     if request.method == "GET":
         return ok(ChatDetailSerializer(chat).data)
     # PUT: status / operatorId / notes
@@ -321,14 +344,15 @@ def chat_detail(request, chat_id):
 @api_view(["POST"])
 def chat_loading(request, chat_id):
     """LINE のローディング表示を開始。# TODO: POST /v2/bot/chat/loading/start 連携"""
-    get_object_or_404(Chat, id=chat_id)
+    get_object_or_404(Friend, id=chat_id)
     return ok(None)
 
 
 @api_view(["POST"])
 def chat_send(request, chat_id):
-    """オペレーターから友だちへメッセージ送信 (LINE プッシュ)。"""
-    chat = get_object_or_404(Chat.objects.select_related("friend"), id=chat_id)
+    """オペレーターから友だちへメッセージ送信 (LINE プッシュ)。chat_id = friend_id。"""
+    friend = get_object_or_404(Friend, id=chat_id)
+    chat, _ = Chat.objects.get_or_create(friend=friend)
     content = request.data.get("content", "")
     message_type = request.data.get("messageType", "text")
     if not content:

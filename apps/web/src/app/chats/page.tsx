@@ -438,12 +438,20 @@ export default function ChatsPage() {
   // avoids any update loop.
   useEffect(() => {
     if (!chatDetail) return
+    const lastMsg = chatDetail.messages?.[chatDetail.messages.length - 1]
+    const lastDir = chatDetail.lastMessageDirection ?? lastMsg?.direction ?? null
+    // 現在のフィルタに一致するか。一致しなければ一覧には出さない
+    // (詳細パネルは開いたままなので会話は失われない)。
+    const matchesFilter = unansweredOnly
+      ? lastDir === 'incoming'
+      : (statusFilter === 'all' || chatDetail.status === statusFilter)
     setChats((prev) => {
-      if (prev.some((c) => c.id === chatDetail.id)) return prev
-      // /api/chats/:id may not populate the lastMessage* fields; derive
-      // from the messages array as a fallback so the sidebar preview is
-      // not stuck on "(まだメッセージなし)".
-      const lastMsg = chatDetail.messages?.[chatDetail.messages.length - 1]
+      const exists = prev.some((c) => c.id === chatDetail.id)
+      if (!matchesFilter) {
+        // フィルタ不一致: 開いていても一覧から除外（フィルタの一貫性を優先）
+        return exists ? prev.filter((c) => c.id !== chatDetail.id) : prev
+      }
+      if (exists) return prev
       const entry: Chat = {
         id: chatDetail.id,
         friendId: chatDetail.friendId,
@@ -454,14 +462,14 @@ export default function ChatsPage() {
         notes: chatDetail.notes ?? null,
         lastMessageAt: chatDetail.lastMessageAt ?? lastMsg?.createdAt ?? null,
         lastMessageContent: chatDetail.lastMessageContent ?? lastMsg?.content ?? null,
-        lastMessageDirection: chatDetail.lastMessageDirection ?? lastMsg?.direction ?? null,
+        lastMessageDirection: lastDir,
         lastMessageType: chatDetail.lastMessageType ?? lastMsg?.messageType ?? null,
         createdAt: chatDetail.createdAt,
         updatedAt: chatDetail.updatedAt,
       }
       return [entry, ...prev]
     })
-  }, [chatDetail, chats])
+  }, [chatDetail, chats, statusFilter, unansweredOnly])
 
   // 詳細が新しくロードされたら最下部（＝最新メッセージ）までスクロールする。
   // そこから上にスクロールすれば過去のメッセージを辿れる（LINE受信画面と同じUX）。
